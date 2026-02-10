@@ -63,12 +63,28 @@ def get_batch(data_iterator):
     return tokens, labels, loss_mask, attention_mask, position_ids
 
 def loss_func(loss_mask, output_tensor):
+    # output_tensor: per-token loss (e.g., [batch, seq] or [seq])
     loss = output_tensor.float()
 
-    # Reduce loss for logging.
+    # loss_mask: [batch, seq] (from get_ltor_masks_and_position_ids)
+    # output_tensor가 [seq]로 오면 [1, seq]로 맞춰줌
+    if loss.dim() == 1:
+        loss = loss.unsqueeze(0)
+
+    # 같은 방식으로 loss_mask도 shape 맞추기
+    if loss_mask.dim() == 1:
+        loss_mask_ = loss_mask.unsqueeze(0)
+    else:
+        loss_mask_ = loss_mask
+
+    # masked mean -> scalar
+    loss = (loss * loss_mask_).sum() / loss_mask_.sum().clamp(min=1.0)
+
+    # Reduce loss for logging. (returns 1-element list/tuple)
     averaged_loss = average_losses_across_data_parallel_group([loss])
 
     return loss, {'lm loss': averaged_loss[0]}
+
 
 
 def forward_step(data_iterator, model):
