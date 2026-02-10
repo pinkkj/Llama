@@ -21,11 +21,15 @@ def load(args):
     _, bare_metal_major, bare_metal_minor = _get_cuda_bare_metal_version(
         cpp_extension.CUDA_HOME)
     if int(bare_metal_major) >= 11:
-        cc_flag.append('-gencode')
-        cc_flag.append('arch=compute_80,code=sm_80')
+        cc_flag += ['-gencode', 'arch=compute_80,code=sm_80']
+    
+        # CUDA 11.7+ : Hopper (SM90)
         if int(bare_metal_minor) >= 7:
-            cc_flag.append('-gencode')
-            cc_flag.append('arch=compute_90,code=sm_90')
+            cc_flag += ['-gencode', 'arch=compute_90,code=sm_90']
+    
+    # CUDA 12.x : Blackwell (SM100) (대부분 12.8/12.9/13.x에서 가능)
+    if int(bare_metal_major) >= 12:
+        cc_flag += ['-gencode', 'arch=compute_100,code=sm_100']
 
     # Build path
     srcpath = pathlib.Path(__file__).parent.absolute()
@@ -40,8 +44,8 @@ def load(args):
             build_directory=buildpath,
             extra_cflags=['-O3',],
             extra_cuda_cflags=['-O3',
-                               '-gencode', 'arch=compute_70,code=sm_70',
                                '--use_fast_math'] + extra_cuda_flags + cc_flag,
+
             verbose=(args.rank == 0)
         )
 
